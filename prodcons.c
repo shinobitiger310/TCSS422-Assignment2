@@ -29,9 +29,10 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 // Bounded buffer put() get()
+// TODO: integrate counter module, currently unsafe for many threads
 int put(Matrix * value)
 {
-    bigMatrix[fill] = value;
+    bigmatrix[fill] = value;
     fill = (fill + 1) % BOUNDED_BUFFER_SIZE;
     count++;
     return count;
@@ -39,7 +40,7 @@ int put(Matrix * value)
 
 Matrix * get()
 {
-  Matrix *tmp = bigMatrix[use];
+  Matrix *tmp = bigmatrix[use];
   use = (use + 1) % BOUNDED_BUFFER_SIZE;
   count --;
   return tmp;
@@ -70,6 +71,8 @@ void *cons_worker(void *arg)
         while (count == 0)
             pthread_cond_wait(&full, &mutex);
         Matrix *tmp = get();
+        // Process the matrix (here we just free it)
+        FreeMatrix(tmp);
         pthread_cond_signal(&empty);
         pthread_mutex_unlock(&mutex);
     }
