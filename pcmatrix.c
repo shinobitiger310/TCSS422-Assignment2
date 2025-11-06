@@ -130,17 +130,17 @@ int main (int argc, char * argv[])
   pthread_t pr;
   pthread_t co;
 
-  // Define stats structs for producer and consumer threads
-  ProdConsStats * prods;
-  ProdConsStats * cons;
+  // allocate memory for producer and consumer stat structs thread results
+  ProdConsStats * prods = malloc(sizeof(ProdConsStats));
+  ProdConsStats * cons = malloc(sizeof(ProdConsStats));
 
   // Create the producer and consumer threads
   pthread_create(&pr, NULL, *prod_worker, NULL);
   pthread_create(&co, NULL, *cons_worker, NULL);
 
   // Wait for the producer and consumer threads to finish
-  prods = pthread_join(pr, NULL);
-  cons = pthread_join(co, NULL);
+  pthread_join(pr, (void**) &prods);
+  pthread_join(co, (void**) &cons);
 
   // These are used to aggregate total numbers for main thread output
   int prs = 0; // total #matrices produced
@@ -160,5 +160,7 @@ int main (int argc, char * argv[])
   printf("Sum of Matrix elements --> Produced=%d = Consumed=%d\n",prs,cos);
   printf("Matrices produced=%d consumed=%d multiplied=%d\n",prodtot,constot,consmul);
 
+  free(prods);
+  free(cons);
   return 0;
 }

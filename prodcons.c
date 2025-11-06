@@ -20,16 +20,14 @@
 
 
 // Define Locks, Condition variables, and so on here
-int fill = 0;
-int use = 0;
-int count = 0;
+int fill = 0; // only accessed by producers
+int use = 0; // only accessed by consumers
+int count = 0; // shared resource counter (is this safe for many threads?)
 pthread_cond_t empty = PTHREAD_COND_INITIALIZER;
 pthread_cond_t full = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-
-// Bounded buffer put() get()
-// TODO: integrate counter module, currently unsafe for many threads
+// Bounded buffer put() get() routines
 int put(Matrix * value)
 {
     bigmatrix[fill] = value;
@@ -50,7 +48,11 @@ Matrix * get()
 void *prod_worker(void *arg)
 {
     int i;
+    ProdConsStats *stats = (ProdConsStats *) arg;
+    Matrix *current;
+    // implement the stats collection here
     for (i = 0; i < NUMBER_OF_MATRICES; i++) {
+        // We need to check matrix_mode and produce accordingly, not just random
         Matrix *value = GenMatrixRandom();
         pthread_mutex_lock(&mutex);
         while (count == BOUNDED_BUFFER_SIZE)
@@ -59,13 +61,16 @@ void *prod_worker(void *arg)
         pthread_cond_signal(&full);
         pthread_mutex_unlock(&mutex);
     }
-  return NULL;
+  return (void*) stats;
 }
 
 // Matrix CONSUMER worker thread
 void *cons_worker(void *arg)
 {
     int i;
+    ProdConsStats *stats = (ProdConsStats *) arg;
+    Matrix *current;
+    // implement the stats collection here
     for (i = 0; i < NUMBER_OF_MATRICES; i++) {
         pthread_mutex_lock(&mutex);
         while (count == 0)
@@ -73,8 +78,9 @@ void *cons_worker(void *arg)
         Matrix *tmp = get();
         // Process the matrix (here we just free it)
         FreeMatrix(tmp);
+
         pthread_cond_signal(&empty);
         pthread_mutex_unlock(&mutex);
     }
-  return NULL;
+  return (void*) stats;
 }
