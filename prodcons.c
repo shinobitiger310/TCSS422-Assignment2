@@ -32,6 +32,7 @@ int put(Matrix * value)
 {
     bigmatrix[fill] = value;
     fill = (fill + 1) % BOUNDED_BUFFER_SIZE;
+    increment_cnt(prodc);
     return 1;
 }
 
@@ -39,6 +40,7 @@ Matrix * get()
 {
   Matrix *tmp = bigmatrix[use];
   use = (use + 1) % BOUNDED_BUFFER_SIZE;
+  increment_cnt(conc);
   return tmp;
 }
 
@@ -61,7 +63,6 @@ void *prod_worker(void *arg)
     while (get_cnt(prodc) - get_cnt(conc) >= BOUNDED_BUFFER_SIZE) 
         pthread_cond_wait(&empty, &mutex);
     put(produced);
-    increment_cnt(prodc);
     pthread_cond_signal(&full);
     pthread_mutex_unlock(&mutex);
     
@@ -96,7 +97,6 @@ void *cons_worker(void *arg)
       while (get_cnt(prodc) == get_cnt(conc)) 
           pthread_cond_wait(&full, &mutex);
       m1 = get();
-      increment_cnt(conc);
       pthread_mutex_unlock(&mutex);
       
       cons->matrixtotal++;
@@ -115,7 +115,6 @@ void *cons_worker(void *arg)
       while (get_cnt(prodc) == get_cnt(conc)) 
           pthread_cond_wait(&full, &mutex);
       m2 = get();
-      increment_cnt(conc);
       pthread_mutex_unlock(&mutex);
       
       cons->matrixtotal++;
@@ -139,7 +138,6 @@ void *cons_worker(void *arg)
         while (get_cnt(prodc) == get_cnt(conc)) 
           pthread_cond_wait(&full, &mutex);
         m2 = get();
-        increment_cnt(conc);
         pthread_mutex_unlock(&mutex);
         
         cons->matrixtotal++;
