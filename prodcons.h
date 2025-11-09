@@ -7,6 +7,8 @@
  */
 
 Matrix ** bigmatrix;
+counter_t *prodc;
+counter_t *conc; 
 
 // PRODUCER-CONSUMER put() get() function prototypes
 
