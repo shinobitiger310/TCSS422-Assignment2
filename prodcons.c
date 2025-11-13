@@ -97,6 +97,7 @@ void *cons_worker(void *arg)
       while (get_cnt(prodc) == get_cnt(conc)) 
           pthread_cond_wait(&full, &mutex);
       m1 = get();
+      pthread_cond_signal(&empty);
       pthread_mutex_unlock(&mutex);
       
       cons->matrixtotal++;
@@ -115,6 +116,7 @@ void *cons_worker(void *arg)
       while (get_cnt(prodc) == get_cnt(conc)) 
           pthread_cond_wait(&full, &mutex);
       m2 = get();
+      pthread_cond_signal(&empty);
       pthread_mutex_unlock(&mutex);
       
       cons->matrixtotal++;
@@ -138,6 +140,7 @@ void *cons_worker(void *arg)
         while (get_cnt(prodc) == get_cnt(conc)) 
           pthread_cond_wait(&full, &mutex);
         m2 = get();
+        pthread_cond_signal(&empty);
         pthread_mutex_unlock(&mutex);
         
         cons->matrixtotal++;
@@ -158,9 +161,6 @@ void *cons_worker(void *arg)
       
       cons->multtotal++;
       
-      pthread_mutex_lock(&mutex);
-      pthread_cond_signal(&empty);
-      pthread_mutex_unlock(&mutex);
   }
   
   return (void*) cons;
