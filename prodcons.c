@@ -47,29 +47,35 @@ Matrix * get()
 // Matrix PRODUCER worker thread
 void *prod_worker(void *arg)
 {
+  // Extract work count from argument
+  int *num_to_produce = (int*)arg;
+  int work_count = *num_to_produce;
+  free(num_to_produce);  // Free the allocated int
+
   int i;
   ProdConsStats *prods = malloc(sizeof(ProdConsStats));
   prods->sumtotal = 0;
   prods->matrixtotal = 0;
   prods->multtotal = 0;
-  
+
   Matrix *produced;
-  
-  for (i = 0; i < NUMBER_OF_MATRICES; i++) {
+
+  for (i = 0; i < work_count; i++) {
     produced = GenMatrixRandom();
-    
+
+    // Sum the matrix BEFORE putting it in buffer (while we still own it)
+    prods->sumtotal += SumMatrix(produced);
+    prods->matrixtotal++;
+
     pthread_mutex_lock(&mutex);
     // wait while buffer is full
-    while (get_cnt(prodc) - get_cnt(conc) >= BOUNDED_BUFFER_SIZE) 
+    while (get_cnt(prodc) - get_cnt(conc) >= BOUNDED_BUFFER_SIZE)
         pthread_cond_wait(&empty, &mutex);
     put(produced);
     pthread_cond_signal(&full);
     pthread_mutex_unlock(&mutex);
-    
-    prods->sumtotal += SumMatrix(produced);
-    prods->matrixtotal++;
   }
-  
+
   return (void*) prods;
 }
 
@@ -86,16 +92,26 @@ void *cons_worker(void *arg)
   // Continue until all matrices consumed
   while (1) {
       pthread_mutex_lock(&mutex);
-      
+
       // Check if we've consumed all matrices
       if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
+          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
           pthread_mutex_unlock(&mutex);
           break;
       }
-      
-      // wait while the buffer is empty
-      while (get_cnt(prodc) == get_cnt(conc)) 
+
+      // wait while the buffer is empty AND not done
+      while (get_cnt(prodc) == get_cnt(conc) && get_cnt(conc) < NUMBER_OF_MATRICES)
           pthread_cond_wait(&full, &mutex);
+
+      // After waking, check if we're done (termination condition)
+      if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
+          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
+          pthread_mutex_unlock(&mutex);
+          break;
+      }
+
+      // If we reach here, buffer must have data (while loop exited, not done, holding mutex)
       m1 = get();
       pthread_cond_signal(&empty);
       pthread_mutex_unlock(&mutex);
@@ -104,17 +120,28 @@ void *cons_worker(void *arg)
       cons->sumtotal += SumMatrix(m1);
       
       pthread_mutex_lock(&mutex);
-      
+
       // Check again before getting m2
       if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
+          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
           pthread_mutex_unlock(&mutex);
           FreeMatrix(m1);
           break;
       }
-      
-      // wait while the buffer is empty
-      while (get_cnt(prodc) == get_cnt(conc)) 
+
+      // wait while the buffer is empty AND not done
+      while (get_cnt(prodc) == get_cnt(conc) && get_cnt(conc) < NUMBER_OF_MATRICES)
           pthread_cond_wait(&full, &mutex);
+
+      // After waking, check if we're done (termination condition)
+      if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
+          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
+          pthread_mutex_unlock(&mutex);
+          FreeMatrix(m1);
+          break;
+      }
+
+      // If we reach here, buffer must have data (while loop exited, not done, holding mutex)
       m2 = get();
       pthread_cond_signal(&empty);
       pthread_mutex_unlock(&mutex);
@@ -126,23 +153,34 @@ void *cons_worker(void *arg)
       
       while (m3 == NULL) {
         FreeMatrix(m2);
-        
+
         pthread_mutex_lock(&mutex);
-        
+
         // Check if all matrices have been produced and we need to stop
         if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
+          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
           pthread_mutex_unlock(&mutex);
           FreeMatrix(m1);
           return (void*) cons;
         }
-        
-        // wait while the buffer is empty
-        while (get_cnt(prodc) == get_cnt(conc)) 
+
+        // wait while the buffer is empty AND not done
+        while (get_cnt(prodc) == get_cnt(conc) && get_cnt(conc) < NUMBER_OF_MATRICES)
           pthread_cond_wait(&full, &mutex);
+
+        // After waking, check if we're done (termination condition)
+        if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
+          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
+          pthread_mutex_unlock(&mutex);
+          FreeMatrix(m1);
+          return (void*) cons;
+        }
+
+        // If we reach here, buffer must have data (while loop exited, not done, holding mutex)
         m2 = get();
         pthread_cond_signal(&empty);
         pthread_mutex_unlock(&mutex);
-        
+
         cons->matrixtotal++;
         cons->sumtotal += SumMatrix(m2);
         m3 = MatrixMultiply(m1, m2);
