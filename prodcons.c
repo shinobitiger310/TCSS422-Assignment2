@@ -45,7 +45,7 @@ int put(Matrix * value)
     bigmatrix[fill] = value;
     fill = (fill + 1) % BOUNDED_BUFFER_SIZE;
     increment_cnt(prodc);
-    return 1;
+    return get_cnt(prodc);
 }
 
 Matrix * get()
