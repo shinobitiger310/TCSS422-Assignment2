@@ -26,6 +26,18 @@ pthread_cond_t empty = PTHREAD_COND_INITIALIZER;
 pthread_cond_t full = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// Helper function to handle consumer termination cleanup
+// Wakes other consumers, unlocks mutex, frees m1 if provided, returns stats
+void* cleanup_and_exit(Matrix *m1, ProdConsStats *cons)
+{
+  pthread_cond_broadcast(&full);  // Wake up other waiting consumers
+  pthread_mutex_unlock(&mutex);
+  if (m1 != NULL) {
+    FreeMatrix(m1);
+  }
+  return (void*) cons;
+}
+
 // Bounded buffer put() get() routines
 
 int put(Matrix * value)
@@ -95,9 +107,7 @@ void *cons_worker(void *arg)
 
       // Check if we've consumed all matrices
       if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
-          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
-          pthread_mutex_unlock(&mutex);
-          break;
+          return cleanup_and_exit(NULL, cons);
       }
 
       // wait while the buffer is empty AND not done
@@ -106,9 +116,7 @@ void *cons_worker(void *arg)
 
       // After waking, check if we're done (termination condition)
       if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
-          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
-          pthread_mutex_unlock(&mutex);
-          break;
+          return cleanup_and_exit(NULL, cons);
       }
 
       // If we reach here, buffer must have data (while loop exited, not done, holding mutex)
@@ -123,10 +131,7 @@ void *cons_worker(void *arg)
 
       // Check again before getting m2
       if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
-          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
-          pthread_mutex_unlock(&mutex);
-          FreeMatrix(m1);
-          break;
+          return cleanup_and_exit(m1, cons);
       }
 
       // wait while the buffer is empty AND not done
@@ -135,10 +140,7 @@ void *cons_worker(void *arg)
 
       // After waking, check if we're done (termination condition)
       if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
-          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
-          pthread_mutex_unlock(&mutex);
-          FreeMatrix(m1);
-          break;
+          return cleanup_and_exit(m1, cons);
       }
 
       // If we reach here, buffer must have data (while loop exited, not done, holding mutex)
@@ -158,10 +160,7 @@ void *cons_worker(void *arg)
 
         // Check if all matrices have been produced and we need to stop
         if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
-          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
-          pthread_mutex_unlock(&mutex);
-          FreeMatrix(m1);
-          return (void*) cons;
+          return cleanup_and_exit(m1, cons);
         }
 
         // wait while the buffer is empty AND not done
@@ -170,10 +169,7 @@ void *cons_worker(void *arg)
 
         // After waking, check if we're done (termination condition)
         if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
-          pthread_cond_broadcast(&full);  // Wake up other waiting consumers
-          pthread_mutex_unlock(&mutex);
-          FreeMatrix(m1);
-          return (void*) cons;
+          return cleanup_and_exit(m1, cons);
         }
 
         // If we reach here, buffer must have data (while loop exited, not done, holding mutex)
