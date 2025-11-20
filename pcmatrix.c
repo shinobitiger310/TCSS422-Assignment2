@@ -92,12 +92,13 @@ int main (int argc, char * argv[])
   printf("With %d producer and consumer thread(s).\n",numw);
   printf("\n");
 
-  bigmatrix = (Matrix **) malloc(sizeof(Matrix *) * BOUNDED_BUFFER_SIZE);
+  
+  bigmatrix = (Matrix **) malloc(sizeof(Matrix *) * BOUNDED_BUFFER_SIZE); // allocate bounded buffer matrix array
 
-  prodc = (counter_t *) malloc(sizeof(counter_t));
-  conc = (counter_t *) malloc(sizeof(counter_t));
-  init_cnt(prodc);
-  init_cnt(conc);
+  prodc = (counter_t *) malloc(sizeof(counter_t)); // allocate counters for produced matrices
+  conc = (counter_t *) malloc(sizeof(counter_t)); // allocate counters for consumed matrices
+  init_cnt(prodc); // initialize counters for produced matrices
+  init_cnt(conc); // initialize counters
 
   // Allocate arrays for multiple producers and consumers
   pthread_t *producers = (pthread_t *) malloc(sizeof(pthread_t) * numw);
@@ -108,19 +109,19 @@ int main (int argc, char * argv[])
   ProdConsStats **cons_stats = (ProdConsStats **) malloc(sizeof(ProdConsStats *) * numw);
 
   // Calculate work distribution for producers
-  int matrices_per_producer = NUMBER_OF_MATRICES / numw;
-  int remainder = NUMBER_OF_MATRICES % numw;
+  int matrices_per_producer = NUMBER_OF_MATRICES / numw; // base number of matrices per producer
+  int remainder = NUMBER_OF_MATRICES % numw; // remainder matrices to distribute
 
   // Create producer threads with specific work counts
   for (int i = 0; i < numw; i++) {
-    int *work = (int *) malloc(sizeof(int));
-    *work = matrices_per_producer + (i < remainder ? 1 : 0);
-    pthread_create(&producers[i], NULL, prod_worker, work);
+    int *work = (int *) malloc(sizeof(int)); // allocate memory for work count
+    *work = matrices_per_producer + (i < remainder ? 1 : 0); // distribute remainder among producers
+    pthread_create(&producers[i], NULL, prod_worker, work); // create producer thread
   }
 
   // Create consumer threads
   for (int i = 0; i < numw; i++) {
-    pthread_create(&consumers[i], NULL, cons_worker, NULL);
+    pthread_create(&consumers[i], NULL, cons_worker, NULL); // create consumer thread
   }
 
   // These are used to aggregate total numbers for main thread output
