@@ -130,7 +130,6 @@ void *cons_worker(void *arg)
 
       // Check if we've consumed all matrices
       if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
-
           // Wakes other consumers, unlocks mutex, returns stats
           return cleanup_and_exit_consumer(NULL, cons);
       }
@@ -177,7 +176,7 @@ void *cons_worker(void *arg)
 
         pthread_mutex_lock(&mutex); // lock the mutex before accessing the buffer
 
-        // Check if all matrices have been produced and we need to stop
+        // Check if all possible matrices have been consumed and we need to stop
         if (get_cnt(conc) >= NUMBER_OF_MATRICES) {
           return cleanup_and_exit_consumer(m1, cons);
         }
@@ -193,9 +192,9 @@ void *cons_worker(void *arg)
         pthread_cond_signal(&empty); // signal that buffer has space
         pthread_mutex_unlock(&mutex); // unlock the mutex
 
-        cons->matrixtotal++;
-        cons->sumtotal += SumMatrix(m2);
-        m3 = MatrixMultiply(m1, m2);
+        cons->matrixtotal++; // increase the tracker for total number of matrices consumed by 1
+        cons->sumtotal += SumMatrix(m2); // increase the tracker for total sum of all consumed by sum of the matrix
+        m3 = MatrixMultiply(m1, m2); // multiply the matrices together, will return NULL if incompatible
       }
       
       // Print the multiplication result
@@ -211,9 +210,10 @@ void *cons_worker(void *arg)
       FreeMatrix(m2);
       FreeMatrix(m3);
       
+      // increase total successfully multiplied tracker by 1
       cons->multtotal++;
       
   }
   
-  return (void*) cons;
+  return (void*) cons; // return progression stats
 }
